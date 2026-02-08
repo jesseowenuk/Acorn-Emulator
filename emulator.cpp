@@ -37,3 +37,32 @@ int main()
 {
     return 0;
 }
+
+// Function to return whatever 8-bit value is stored 
+// in memory at the address specified
+uint8_t read8(uint32_t address)
+{
+    return memory[address];
+}
+
+// Function to write a specified 8-bit value
+// in memory at the address specified
+void write8(uint32_t address, uint8_t value)
+{
+    memory[address] = value;
+}
+
+// Function to return whatever 16-bit value is stored 
+// in memory at the address specified
+uint8_t read16(uint32_t address)
+{
+    return memory[address] | (memory[address + 1] << 8);
+}
+
+// Function to write a specified 16-bit value
+// in memory at the address specified
+void write16(uint32_t address, uint16_t value)
+{
+    memory[address] = value & 0xFF;
+    memory[address] = (value >> 8) & 0xFF;
+}
