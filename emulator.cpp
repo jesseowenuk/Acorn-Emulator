@@ -50,10 +50,17 @@ int main()
     cpu.IP = 0x2000;        // For this test we'll start with the memory we wrote too
 
     // Write our program to memory
-    write8(0x2000, 0xB8);           // MOV AX, 16 bit value
-    write16(0x2001, 0x1234);        // immediate value 0x1234
-    write8(0x2003, 0xB8);           // MOV AX, 16 bit value
-    write16(0x2004, 0x5678);        // immediate value 0x1234
+    // MOV AH, 0x0E
+    write8(0x2000, 0xB4);           // MOV AX, 8 bit value
+    write8(0x2001, 0x0E);           // AH = 0x0E
+
+    // MOV AL, 'A'
+    write8(0x2002, 0xB0);           // MOV AL, 8 bit value
+    write8(0x2003, 'A');            // AL = 'A'
+
+    // INT 0x10
+    write8(0x2004, 0xCD);           // INT opcode
+    write8(0x2005, 0x10);           // interrupt number (0x10)
 
 
     // Fetch / Decode Loop
@@ -75,6 +82,44 @@ int main()
                 cpu.AX = imm;
                 cpu.IP += 2;  
                 printf("Executed MOV AX, 0x%04X\n", cpu.AX);
+                break;
+            }
+
+            // MOV AH, 8_bit_value
+            case 0xB4:
+            {
+                uint8_t imm = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+                cpu.AX = (imm << 8) | (cpu.AX & 0x00FF);    // keep AL
+                printf("Executed MOV AH, 0x%02X\n", imm);
+                break;
+            }
+
+            // MOV AL, 8_bit_value
+            case 0xB0:
+            {
+                uint8_t imm = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+                cpu.AX = (cpu.AX & 0xFF00) | imm;       // keep AH
+                printf("Exeecuted MOV AL, 0x%02X\n", imm);
+                break;
+            }
+
+            // INT, 8_bit_value
+            case 0xCD:
+            {
+                uint8_t int_num = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                if(int_num == 0x10 && (cpu.AX >> 8) == 0x0E) // AH = high byte of AX  
+                {
+                    char c = cpu.AX & 0xFF;     // AL = low byte of AX
+                    putchar(c);
+                }
+                else
+                {
+                    printf("\nUnknown interrupt 0x%02X with AH=0x%02X\n", int_num, cpu.AX >> 8);
+                }
                 break;
             }
 
