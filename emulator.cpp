@@ -45,29 +45,34 @@ int main()
     // Create a CPU and set all the registers to 0
     CPU16 cpu = {0};
 
-    ///////// TESTING /////////////
-    // Step A: Put numbers into memory
-    write8(0x1000, 42);         // Put 42 in memory 0x1000
-    write16(0x2000, 0x1234);    // Put 1234 in memory 0x2000 & 0x2001
-
-    // Step B: Read them back
-    uint8_t a = read8(0x1000);
-    uint16_t b = read16(0x2000);
-
-    // Step C: Print to test
-    printf("Memory[0x1000] = %u\n", a);     // should print 42
-    printf("Memory[0x2000] = 0x%04X\n", b);     // should print 0x1234
-
     // Set up IP and CS
     cpu.CS = 0x0000;
     cpu.IP = 0x2000;        // For this test we'll start with the memory we wrote too
+
+    ///////// TESTING /////////////
+
+    // Write our program to memory
+    write8(0x2000, 0xB8);           // MOV AX, imm16
+    write16(0x2001, 0x1234);        // immediate value 0x1234
 
     // Fetch a single instruction
     uint16_t physical_address = cpu.CS * 16 + cpu.IP;
     uint8_t opcode = read8(physical_address);
     cpu.IP++;               // move to the next instruction
 
-    printf("Fetched opcode: 0x%02X from memory[0x%04X]\n", opcode, physical_address);
+    // Minimal decode
+    if(opcode == 0xB8)  // MOV AX, imm16
+    {
+        // Fetch the next two bytes as immediate value
+        uint16_t imm = read16(cpu.CS * 16 + cpu.IP);
+        cpu.AX = imm;
+        cpu.IP += 2;    // move past the immediate bytes
+        printf("Executed MOV AX, 0x%04X\n", cpu.AX);
+    }
+    else
+    {
+        printf("Unknown opcode: 0x%02X\n", opcode);
+    }
 
     return 0;
 }
