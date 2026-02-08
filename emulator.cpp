@@ -39,6 +39,7 @@ void write8(uint32_t address, uint8_t value);
 uint16_t read16(uint32_t address);
 void write16(uint32_t address, uint16_t value);
 
+// MAIN ////////////////////////////////////////
 int main()
 {
     // Create a CPU and set all the registers to 0
@@ -56,6 +57,17 @@ int main()
     // Step C: Print to test
     printf("Memory[0x1000] = %u\n", a);     // should print 42
     printf("Memory[0x2000] = 0x%04X\n", b);     // should print 0x1234
+
+    // Set up IP and CS
+    cpu.CS = 0x0000;
+    cpu.IP = 0x2000;        // For this test we'll start with the memory we wrote too
+
+    // Fetch a single instruction
+    uint16_t physical_address = cpu.CS * 16 + cpu.IP;
+    uint8_t opcode = read8(physical_address);
+    cpu.IP++;               // move to the next instruction
+
+    printf("Fetched opcode: 0x%02X from memory[0x%04X]\n", opcode, physical_address);
 
     return 0;
 }
