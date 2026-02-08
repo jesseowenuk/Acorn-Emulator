@@ -49,29 +49,41 @@ int main()
     cpu.CS = 0x0000;
     cpu.IP = 0x2000;        // For this test we'll start with the memory we wrote too
 
-    ///////// TESTING /////////////
-
     // Write our program to memory
-    write8(0x2000, 0xB8);           // MOV AX, imm16
+    write8(0x2000, 0xB8);           // MOV AX, 16 bit value
     write16(0x2001, 0x1234);        // immediate value 0x1234
+    write8(0x2003, 0xB8);           // MOV AX, 16 bit value
+    write16(0x2004, 0x5678);        // immediate value 0x1234
 
-    // Fetch a single instruction
-    uint16_t physical_address = cpu.CS * 16 + cpu.IP;
-    uint8_t opcode = read8(physical_address);
-    cpu.IP++;               // move to the next instruction
 
-    // Minimal decode
-    if(opcode == 0xB8)  // MOV AX, imm16
+    // Fetch / Decode Loop
+    while(1)
     {
-        // Fetch the next two bytes as immediate value
-        uint16_t imm = read16(cpu.CS * 16 + cpu.IP);
-        cpu.AX = imm;
-        cpu.IP += 2;    // move past the immediate bytes
-        printf("Executed MOV AX, 0x%04X\n", cpu.AX);
-    }
-    else
-    {
-        printf("Unknown opcode: 0x%02X\n", opcode);
+        // Step 1: Fetch
+        uint16_t physical_address = cpu.CS * 16 + cpu.IP;
+        uint8_t opcode = read8(physical_address);
+        cpu.IP++;               // move past the opcode
+
+        // Step 2: Decode & Execute
+        switch(opcode)
+        {
+            // MOV AX, 16_bit_value
+            case 0xB8:
+            {
+                // Fetch the next two bytes as immediate value
+                uint16_t imm = read16(cpu.CS * 16 + cpu.IP);
+                cpu.AX = imm;
+                cpu.IP += 2;  
+                printf("Executed MOV AX, 0x%04X\n", cpu.AX);
+                break;
+            }
+
+            default:
+            {
+                printf("Unknown opcode: 0x%02X\n", opcode);
+                return 0;
+            }
+        }
     }
 
     return 0;
