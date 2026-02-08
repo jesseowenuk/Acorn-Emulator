@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define MEMORY_SIZE 0x100000            // 1MB of memory
+uint8_t memory[MEMORY_SIZE];            // create an array to store our 1MB of RAM
+
 typedef struct
 {
     // 16-bit registers (general purpose)
