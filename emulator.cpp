@@ -16,6 +16,9 @@ typedef struct
     uint16_t DI;    // DI is usually an offset from the ES segment
     uint16_t BP;    // The stack frame - usually an offset from the stack segment (SS)
     uint16_t SP;    // The stack pointer - usually an offset from the stack segment (SS)
+
+    // The instruction pointer
+    uint16_t IP;
 } CPU16;
 
 int main()
