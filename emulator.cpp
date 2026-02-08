@@ -33,8 +33,30 @@ typedef struct
     uint16_t FLAGS;
 } CPU16;
 
+// The Functions
+uint8_t read8(uint32_t address);
+void write8(uint32_t address, uint8_t value);
+uint16_t read16(uint32_t address);
+void write16(uint32_t address, uint16_t value);
+
 int main()
 {
+    // Create a CPU and set all the registers to 0
+    CPU16 cpu = {0};
+
+    ///////// TESTING /////////////
+    // Step A: Put numbers into memory
+    write8(0x1000, 42);         // Put 42 in memory 0x1000
+    write16(0x2000, 0x1234);    // Put 1234 in memory 0x2000 & 0x2001
+
+    // Step B: Read them back
+    uint8_t a = read8(0x1000);
+    uint16_t b = read16(0x2000);
+
+    // Step C: Print to test
+    printf("Memory[0x1000] = %u\n", a);     // should print 42
+    printf("Memory[0x2000] = 0x%04X\n", b);     // should print 0x1234
+
     return 0;
 }
 
@@ -54,7 +76,7 @@ void write8(uint32_t address, uint8_t value)
 
 // Function to return whatever 16-bit value is stored 
 // in memory at the address specified
-uint8_t read16(uint32_t address)
+uint16_t read16(uint32_t address)
 {
     return memory[address] | (memory[address + 1] << 8);
 }
@@ -64,5 +86,5 @@ uint8_t read16(uint32_t address)
 void write16(uint32_t address, uint16_t value)
 {
     memory[address] = value & 0xFF;
-    memory[address] = (value >> 8) & 0xFF;
+    memory[address + 1] = (value >> 8) & 0xFF;
 }
