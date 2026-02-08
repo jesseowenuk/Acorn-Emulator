@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define DEBUG 0
+
 #define MEMORY_SIZE 0x100000            // 1MB of memory
 uint8_t memory[MEMORY_SIZE];            // create an array to store our 1MB of RAM
 
@@ -50,17 +52,51 @@ int main()
     cpu.IP = 0x2000;        // For this test we'll start with the memory we wrote too
 
     // Write our program to memory
-    // MOV AH, 0x0E
-    write8(0x2000, 0xB4);           // MOV AX, 8 bit value
-    write8(0x2001, 0x0E);           // AH = 0x0E
+    uint32_t address = 0x2000;
 
-    // MOV AL, 'A'
-    write8(0x2002, 0xB0);           // MOV AL, 8 bit value
-    write8(0x2003, 'A');            // AL = 'A'
+    // MOV AH, 0x0E
+    write8(address++, 0xB4);            // MOV AX, 8 bit value
+    write8(address++, 0x0E);            // AH = 0x0E
+
+    // MOV AL, 'H'
+    write8(address++, 0xB0);            // MOV AL, 8 bit value
+    write8(address++, 'H');             // AL = 'H'
 
     // INT 0x10
-    write8(0x2004, 0xCD);           // INT opcode
-    write8(0x2005, 0x10);           // interrupt number (0x10)
+    write8(address++, 0xCD);           // INT opcode
+    write8(address++, 0x10);           // interrupt number (0x10)
+
+    // MOV AL, 'e'
+    write8(address++, 0xB0);            // MOV AL, 8 bit value
+    write8(address++, 'e');             // AL = 'e'
+
+    // INT 0x10
+    write8(address++, 0xCD);           // INT opcode
+    write8(address++, 0x10);           // interrupt number (0x10)
+
+    // MOV AL, 'l'
+    write8(address++, 0xB0);            // MOV AL, 8 bit value
+    write8(address++, 'l');             // AL = 'l'
+
+    // INT 0x10
+    write8(address++, 0xCD);           // INT opcode
+    write8(address++, 0x10);           // interrupt number (0x10)
+
+    // MOV AL, 'l'
+    write8(address++, 0xB0);            // MOV AL, 8 bit value
+    write8(address++, 'l');             // AL = 'l'
+
+    // INT 0x10
+    write8(address++, 0xCD);           // INT opcode
+    write8(address++, 0x10);           // interrupt number (0x10)
+
+    // MOV AL, 'o'
+    write8(address++, 0xB0);            // MOV AL, 8 bit value
+    write8(address++, 'o');             // AL = 'o'
+
+    // INT 0x10
+    write8(address++, 0xCD);           // INT opcode
+    write8(address++, 0x10);           // interrupt number (0x10)
 
 
     // Fetch / Decode Loop
@@ -80,8 +116,10 @@ int main()
                 // Fetch the next two bytes as immediate value
                 uint16_t imm = read16(cpu.CS * 16 + cpu.IP);
                 cpu.AX = imm;
-                cpu.IP += 2;  
+                cpu.IP += 2; 
+                #if DEBUG 
                 printf("Executed MOV AX, 0x%04X\n", cpu.AX);
+                #endif
                 break;
             }
 
@@ -91,7 +129,9 @@ int main()
                 uint8_t imm = read8(cpu.CS * 16 + cpu.IP);
                 cpu.IP++;
                 cpu.AX = (imm << 8) | (cpu.AX & 0x00FF);    // keep AL
+                #if DEBUG
                 printf("Executed MOV AH, 0x%02X\n", imm);
+                #endif
                 break;
             }
 
@@ -101,7 +141,9 @@ int main()
                 uint8_t imm = read8(cpu.CS * 16 + cpu.IP);
                 cpu.IP++;
                 cpu.AX = (cpu.AX & 0xFF00) | imm;       // keep AH
+                #if DEBUG
                 printf("Exeecuted MOV AL, 0x%02X\n", imm);
+                #endif
                 break;
             }
 
@@ -118,14 +160,18 @@ int main()
                 }
                 else
                 {
+                    #if DEBUG
                     printf("\nUnknown interrupt 0x%02X with AH=0x%02X\n", int_num, cpu.AX >> 8);
+                    #endif
                 }
                 break;
             }
 
             default:
             {
+                #if DEBUG
                 printf("Unknown opcode: 0x%02X\n", opcode);
+                #endif
                 return 0;
             }
         }
