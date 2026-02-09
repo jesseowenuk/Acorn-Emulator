@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define MEMORY_SIZE 0x100000            // 1MB of memory
 uint8_t memory[MEMORY_SIZE];            // create an array to store our 1MB of RAM
@@ -40,6 +40,8 @@ uint8_t read8(uint32_t address);
 void write8(uint32_t address, uint8_t value);
 uint16_t read16(uint32_t address);
 void write16(uint32_t address, uint16_t value);
+void push16(CPU16 *cpu, uint16_t value);
+uint16_t pop16(CPU16 *cpu);
 
 // MAIN ////////////////////////////////////////
 int main()
@@ -49,55 +51,24 @@ int main()
 
     // Set up IP and CS
     cpu.CS = 0x0000;
-    cpu.IP = 0x2000;        // For this test we'll start with the memory we wrote too
+    cpu.IP = 0x2000;
+    cpu.SS = 0x0000;
+    cpu.SP = 0xFFFE;                    // top of the stack near end of the memory segment  
 
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV AH, 0x0E
-    write8(address++, 0xB4);            // MOV AX, 8 bit value
-    write8(address++, 0x0E);            // AH = 0x0E
+    // MOV AX, 1234
+    write8(address++, 0xB8); write16(address, 0x1234); address += 2;
 
-    // MOV AL, 'H'
-    write8(address++, 0xB0);            // MOV AL, 8 bit value
-    write8(address++, 'H');             // AL = 'H'
+    // PUSH AX
+    write8(address++, 0x50); 
 
-    // INT 0x10
-    write8(address++, 0xCD);           // INT opcode
-    write8(address++, 0x10);           // interrupt number (0x10)
+    // MOV AX, 0
+    write8(address++, 0xB8); write16(address, 0x0000); address += 2;
 
-    // MOV AL, 'e'
-    write8(address++, 0xB0);            // MOV AL, 8 bit value
-    write8(address++, 'e');             // AL = 'e'
-
-    // INT 0x10
-    write8(address++, 0xCD);           // INT opcode
-    write8(address++, 0x10);           // interrupt number (0x10)
-
-    // MOV AL, 'l'
-    write8(address++, 0xB0);            // MOV AL, 8 bit value
-    write8(address++, 'l');             // AL = 'l'
-
-    // INT 0x10
-    write8(address++, 0xCD);           // INT opcode
-    write8(address++, 0x10);           // interrupt number (0x10)
-
-    // MOV AL, 'l'
-    write8(address++, 0xB0);            // MOV AL, 8 bit value
-    write8(address++, 'l');             // AL = 'l'
-
-    // INT 0x10
-    write8(address++, 0xCD);           // INT opcode
-    write8(address++, 0x10);           // interrupt number (0x10)
-
-    // MOV AL, 'o'
-    write8(address++, 0xB0);            // MOV AL, 8 bit value
-    write8(address++, 'o');             // AL = 'o'
-
-    // INT 0x10
-    write8(address++, 0xCD);           // INT opcode
-    write8(address++, 0x10);           // interrupt number (0x10)
-
+    // POP AX
+    write8(address++, 0x58); 
 
     // Fetch / Decode Loop
     while(1)
@@ -167,6 +138,26 @@ int main()
                 break;
             }
 
+            // PUSH AX
+            case 0x50:
+            {
+                push16(&cpu, cpu.AX);
+                #if DEBUG
+                printf("Executed PUSH AX\n");
+                #endif
+                break;
+            }
+
+            // POP AX
+            case 0x58:
+            {
+                cpu.AX = pop16(&cpu);
+                #if DEBUG
+                printf("Executed POP AX\n");
+                #endif
+                break;
+            }
+
             default:
             {
                 #if DEBUG
@@ -175,6 +166,10 @@ int main()
                 return 0;
             }
         }
+
+        #if DEBUG
+        printf("AX=%04X  SP=%04X  IP=%04X\n", cpu.AX, cpu.SP, cpu.IP);
+        #endif
     }
 
     return 0;
@@ -207,4 +202,21 @@ void write16(uint32_t address, uint16_t value)
 {
     memory[address] = value & 0xFF;
     memory[address + 1] = (value >> 8) & 0xFF;
+}
+
+// Push (add) a value onto the stack
+void push16(CPU16 *cpu, uint16_t value)
+{
+    cpu->SP -= 2;           // stack grows downwards
+    uint32_t address = cpu->SS * 16 + cpu->SP;
+    write16(address, value);
+}
+
+// Pop (return) a value from the stack 
+uint16_t pop16(CPU16 *cpu)
+{
+    uint32_t address = cpu->SS * 16 + cpu->SP;
+    uint16_t value = read16(address);
+    cpu->SP += 2;
+    return value;
 }
