@@ -4,6 +4,12 @@
 #define DEBUG 1
 
 #define MEMORY_SIZE 0x100000            // 1MB of memory
+
+// FLAGS defines
+#define FLAG_CF 0x0001                  // Carry flag
+#define FLAG_ZF 0x0040                  // Zero flag
+#define FLAG_SF 0x0080                  // Sign flag
+
 uint8_t memory[MEMORY_SIZE];            // create an array to store our 1MB of RAM
 
 typedef struct
@@ -62,18 +68,20 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // CALL to function (offset = 3 bytes ahead)
-    write8(address++, 0xE8); write16(address, 0x0001); address += 2;
+    // MOV AX, 5
+    write8(address++, 0xB8); write16(address, 0x0005); address += 2;
 
-    // HLT (fake end)
+    // CMP AX, 5
+    write8(address++, 0x3D); write16(address, 0x0005); address += 2;
+    
+    // JE (skip next move)
+    write8(address++, 0x74); write8(address++, 0x03);
+
+    // MOV AX, 9999
+    write8(address++, 0xB8); write16(address, 0x9999); address += 2;
+
+    // HLT
     write8(address++, 0xF4); 
-
-    // ---- FUNCTION ------
-    // MOV AX, 1234
-    write8(address++, 0xB8); write16(address, 0x1234); address += 2;
-
-    // RET
-    write8(address++, 0xC3); 
 
     // Fetch / Decode Loop
     while(cpu.running)
@@ -199,6 +207,63 @@ int main()
                 printf("CPU halted\n");
                 #endif
                 cpu.running = 0;
+                break;
+            }
+
+            // CMP AX, imm16
+            case 0x3D:
+            {
+                uint16_t value = read16(cpu.CS * 16 + cpu.IP);
+                cpu.IP += 2;            // Move past the number
+
+                uint32_t result = cpu.AX - value;
+
+                // Clear old flag values (only the ones we are using)
+                cpu.FLAGS &= ~(FLAG_CF | FLAG_ZF | FLAG_SF);
+
+                // Zero flag
+                if((result & 0xFFFF) == 0)
+                {
+                    cpu.FLAGS |= FLAG_ZF;
+                }
+
+                // Sign flag (bits 15 of 16-bit result)
+                if(result & 0x8000)
+                {
+                    cpu.FLAGS |= FLAG_SF;
+                }
+
+                // Carry flag (borrow happened)
+                if(cpu.AX < value)
+                {
+                    cpu.FLAGS |= FLAG_CF;
+                }
+
+                #ifdef DEBUG
+                printf("Executed CMP AX, 0x%04X\n", value);
+                #endif
+                break;
+            }
+
+            // JE rel8
+            case 0x74:
+            {
+                int8_t offset = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                if(cpu.FLAGS & FLAG_ZF)
+                {
+                    cpu.IP += offset;
+                    #ifdef DEBUG
+                    printf("Executed JE (taken) %d\n", offset);
+                    #endif
+                }
+                else
+                {
+                    #ifdef DEBUG
+                    printf("Executed JE (not taken)\n");
+                    #endif
+                }
                 break;
             }
 
