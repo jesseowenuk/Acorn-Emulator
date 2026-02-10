@@ -68,20 +68,22 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV AX, 5
-    write8(address++, 0xB8); write16(address, 0x0005); address += 2;
+    // MOV CX, 5
+    write8(0x2000, 0xB9); write16(0x2001, 5);
 
-    // CMP AX, 5
-    write8(address++, 0x3D); write16(address, 0x0005); address += 2;
+    // DEC CX
+    write8(0x2003, 0x49);
     
-    // JE (skip next move)
-    write8(address++, 0x74); write8(address++, 0x03);
+    // JNE
+    write8(0x2004, 0x75);
 
-    // MOV AX, 9999
-    write8(address++, 0xB8); write16(address, 0x9999); address += 2;
+    // -3 offset (back to DEC)
+    write8(0x2005, 0xFD);
 
     // HLT
-    write8(address++, 0xF4); 
+    write8(0x2006, 0xF4);
+
+   
 
     // Fetch / Decode Loop
     while(cpu.running)
@@ -94,15 +96,28 @@ int main()
         // Step 2: Decode & Execute
         switch(opcode)
         {
-            // MOV AX, 16_bit_value
-            case 0xB8:
+            // All the MOV's
+            // AX, BX, CX, DX, SP, BP, SI & DI
+            case 0xB8: case 0xB9: case 0xBA: case 0xBB:
+            case 0xBC: case 0xBD: case 0xBE: case 0xBF:
             {
                 // Fetch the next two bytes as immediate value
-                uint16_t imm = read16(cpu.CS * 16 + cpu.IP);
-                cpu.AX = imm;
+                uint16_t value = read16(cpu.CS * 16 + cpu.IP);
                 cpu.IP += 2; 
+
+                switch(opcode)
+                {
+                    case 0xB8: cpu.AX = value; break;
+                    case 0xB9: cpu.CX = value; break;
+                    case 0xBA: cpu.DX = value; break;
+                    case 0xBB: cpu.BX = value; break;
+                    case 0xBC: cpu.SP = value; break;
+                    case 0xBD: cpu.BP = value; break;
+                    case 0xBE: cpu.SI = value; break;
+                    case 0xBF: cpu.DI = value; break;
+                }
                 #if DEBUG 
-                printf("Executed MOV AX, 0x%04X\n", cpu.AX);
+                printf("Executed MOV reg, 0x%04X\n", value);
                 #endif
                 break;
             }
@@ -264,6 +279,53 @@ int main()
                     printf("Executed JE (not taken)\n");
                     #endif
                 }
+                break;
+            }
+
+            // DEC CX
+            case 0x49:
+            {
+                cpu.CX--;
+
+                // Clear the flags we manage
+                cpu.FLAGS &= ~(FLAG_ZF | FLAG_SF);
+
+                if(cpu.CX == 0)
+                {
+                    cpu.FLAGS |= FLAG_ZF;
+                }
+
+                if(cpu.CX & 0x8000)
+                {
+                    cpu.FLAGS |= FLAG_SF;
+                }
+
+                #ifdef DEBUG
+                printf("Executed DEC CX\n");
+                #endif
+                break;
+            }
+
+            // JNE rel8
+            case 0x75:
+            {
+                int8_t offset = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                if(!(cpu.FLAGS & FLAG_ZF))
+                {
+                    cpu.IP += offset;
+                    #ifdef DEBUG
+                    printf("Executed JNE (taken) %d\n", offset);
+                    #endif
+                }
+                else
+                {
+                    #ifdef DEBUG
+                    printf("Executed JNE (not taken)\n");
+                    #endif
+                }
+
                 break;
             }
 
