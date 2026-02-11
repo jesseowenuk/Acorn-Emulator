@@ -68,20 +68,14 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV CX, 5
-    write8(0x2000, 0xB9); write16(0x2001, 5);
+    // JMP forward 3
+    write8(0x2000, 0xEB); write8(0x2001, 3);
 
-    // DEC CX
-    write8(0x2003, 0x49);
-    
-    // JNE
-    write8(0x2004, 0x75);
-
-    // -3 offset (back to DEC)
-    write8(0x2005, 0xFD);
+    // MOV AX, 1
+    write8(0x2002, 0xB8); write16(0x2003, 1);
 
     // HLT
-    write8(0x2006, 0xF4);
+    write8(0x2005, 0xF4);
 
    
 
@@ -326,6 +320,20 @@ int main()
                     #endif
                 }
 
+                break;
+            }
+
+            // JMP rel8
+            case 0xEB:
+            {
+                int8_t offset = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;           // move past the offset byte
+
+                cpu.IP += offset;
+
+                #ifdef DEBUG
+                printf("Executed JMP %d\n", offset);
+                #endif
                 break;
             }
 
