@@ -70,11 +70,14 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV AX, 0x0003
-    write8(address++, 0xB8); write16(address, 0x0003); address += 2;
+    // MOV AX, 0x7FFF
+    write8(address++, 0xB8); write16(address, 0x7FFF); address += 2;
 
-    // SUB AX, 0x0005
-    write8(address++, 0x2D); write16(address, 0x0005); address += 2;
+    // INC AX
+    write8(address++, 0x40);
+
+    // INC AX
+    write8(address++, 0x40);
 
     // HLT
     write8(address++, 0xF4);
@@ -482,6 +485,40 @@ int main()
                 #ifdef DEBUG
                 printf("Executed DEC CX\n");
                 #endif
+                break;
+            }
+
+            // INC AX
+            case 0x40:
+            {
+                uint16_t old_value = cpu.AX;
+                cpu.AX++;
+
+                // Clear the flags we care about
+                cpu.FLAGS &= ~(FLAG_ZF | FLAG_SF | FLAG_OF);
+
+                // Zero flag
+                if(cpu.AX == 0)
+                {
+                    cpu.FLAGS |= FLAG_ZF;
+                }
+
+                // Sign flag (bit 15)
+                if(cpu.AX & 0x8000)
+                {
+                    cpu.FLAGS |= FLAG_SF;
+                }
+
+                // Overflow flag - incrementing 0x7FFF - 0x8000
+                if(old_value == 0x7FFF)
+                {
+                    cpu.FLAGS |= FLAG_OF;
+                }
+
+                #ifdef DEBUG
+                printf("Executed INC AX\n");
+                #endif
+
                 break;
             }
 
