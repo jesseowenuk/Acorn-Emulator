@@ -70,11 +70,11 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV AX, 0x7FFF
-    write8(address++, 0xB8); write16(address, 0x7FFF); address += 2;
+    // MOV AX, 0x0003
+    write8(address++, 0xB8); write16(address, 0x0003); address += 2;
 
-    // ADD AX, 0x0001
-    write8(address++, 0x05); write16(address, 0x0001); address += 2;
+    // SUB AX, 0x0005
+    write8(address++, 0x2D); write16(address, 0x0005); address += 2;
 
     // HLT
     write8(address++, 0xF4);
@@ -409,6 +409,53 @@ int main()
 
                 #ifdef DEBUG
                 printf("Executed ADD AX, 0x%04X\n", value);
+                #endif
+
+                break;
+            }
+
+            // SUB AX, value16
+            case 0x2D:
+            {
+                // Fetch the value
+                uint16_t value = read16(cpu.CS * 16 + cpu.IP);
+                cpu.IP += 2;
+
+                // Perform subtraction (use 32-bit to detect borrow)
+                uint32_t result = cpu.AX - value;
+
+                // Clear any old flags we care about
+                cpu.FLAGS &= ~(FLAG_CF | FLAG_ZF | FLAG_SF | FLAG_OF);
+
+                // Carry flag (borrow)
+                if(cpu.AX < value)
+                {
+                    cpu.FLAGS |= FLAG_CF;
+                }
+
+                // Zero flag
+                if((result & 0xFFFF) == 0)
+                {
+                    cpu.FLAGS |= FLAG_ZF;
+                }
+
+                // Sign flag (but 15)
+                if(result & 0x8000)
+                {
+                    cpu.FLAGS |= FLAG_SF;
+                }
+
+                // Overflow flag (signed overflow)
+                if(((cpu.AX ^ value) & (cpu.AX ^ result) & 0x8000))
+                {
+                    cpu.FLAGS |= FLAG_OF;
+                }
+
+                // Store result
+                cpu.AX = result & 0xFFFF;
+
+                #ifdef DEBUG
+                printf("Executed SUB AX, 0x%04X\n", value);
                 #endif
 
                 break;
