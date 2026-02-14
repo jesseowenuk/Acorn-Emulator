@@ -9,6 +9,7 @@
 #define FLAG_CF 0x0001                  // Carry flag
 #define FLAG_ZF 0x0040                  // Zero flag
 #define FLAG_SF 0x0080                  // Sign flag
+#define FLAG_OF 0x0800                  // Overflow flag
 
 uint8_t memory[MEMORY_SIZE];            // create an array to store our 1MB of RAM
 
@@ -68,15 +69,26 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // JMP forward 3
-    write8(0x2000, 0xEB); write8(0x2001, 3);
+    // MOV AX, 3
+    write8(0x2000, 0xB8); write16(0x2001, 0x0003);
 
-    // MOV AX, 1
-    write8(0x2002, 0xB8); write16(0x2003, 1);
+    // CMP AX, 5
+    write8(0x2003, 0x3D); write16(0x2004, 0x0005);
+
+    // JL +4 (jump to 0x200C)
+    write8(0x2006, 0x7C); write8(0x2007, 0x04);
+
+    // MOV AX, 0x9999
+    write8(0x2008, 0xB8); write16(0x2009, 0x9999);
 
     // HLT
-    write8(0x2005, 0xF4);
+    write8(0x200B, 0xF4);
 
+    // + 5
+    write8(0x200C, 0xB8); write16(0x200D, 0x1111);
+
+    // HLT
+    write8(0x200F, 0xF4);
    
 
     // Fetch / Decode Loop
@@ -228,7 +240,7 @@ int main()
                 uint32_t result = cpu.AX - value;
 
                 // Clear old flag values (only the ones we are using)
-                cpu.FLAGS &= ~(FLAG_CF | FLAG_ZF | FLAG_SF);
+                cpu.FLAGS &= ~(FLAG_CF | FLAG_ZF | FLAG_SF | FLAG_OF);
 
                 // Zero flag
                 if((result & 0xFFFF) == 0)
@@ -246,6 +258,14 @@ int main()
                 if(cpu.AX < value)
                 {
                     cpu.FLAGS |= FLAG_CF;
+                }
+
+                // Overflow detection
+                uint16_t result16 = (uint16_t)result;
+
+                if(((cpu.AX ^ value) & (cpu.AX ^ result16) & 0x8000)!= 0)
+                {
+                    cpu.FLAGS |= FLAG_OF;
                 }
 
                 #ifdef DEBUG
@@ -337,6 +357,60 @@ int main()
                 break;
             }
 
+            // JL rel8
+            case 0x7C:
+            {
+                int8_t offset = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                int sign_flag = (cpu.FLAGS & FLAG_SF) ? 1 : 0;
+                int overflow_flag = (cpu.FLAGS & FLAG_OF) ? 1 : 0;
+
+                if(sign_flag != overflow_flag)
+                {
+                    cpu.IP += offset;
+                    #ifdef DEBUG
+                    printf("Executed JL %d (taken)\n", offset);
+                    #endif
+                }
+                #ifdef DEBUG
+                else
+                {
+                    printf("Executed JL %d (not taken)\n", offset);
+                }
+                #endif
+
+                break;
+            }
+
+            // JG rel8
+            case 0x7F:
+            {
+                int8_t offset = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                int sign_flag = (cpu.FLAGS & FLAG_SF) ? 1 : 0;
+                int overflow_flag = (cpu.FLAGS & FLAG_OF) ? 1 : 0;
+                int zero_flag = (cpu.FLAGS & FLAG_ZF) ? 1 : 0;
+
+                if(!zero_flag && (sign_flag == overflow_flag))
+                {
+                    cpu.IP += offset;
+
+                    #ifdef DEBUG
+                    printf("Executed JG %d (taken)\n", offset);
+                    #endif
+                }
+                #ifdef DEBUG
+                else
+                {
+                    printf("Executed JG %d (not taken)\n", offset);
+                }
+                #endif
+
+                break;
+            }
+
             default:
             {
                 #if DEBUG
@@ -404,6 +478,13 @@ void debug_state(CPU16 *cpu, int show_stack)
     #if DEBUG
         printf("AX=%04X  BX=%04X  CX=%04X  DX=%04X\n", cpu->AX, cpu->BX, cpu->CX, cpu->DX);
         printf("CS:IP=%04X:%04X  DS=%04X  ES=%04X  SS:SP=%04X:%04X  FLAGS=%04X\n", cpu->CS, cpu->IP, cpu->DS, cpu->ES, cpu->SS, cpu->SP, cpu->FLAGS);
+        printf("FLAGS=%04X (OF=%d ZF=%d SF=%d CF=%d)\n",
+            cpu->FLAGS,
+            cpu->FLAGS & FLAG_OF ? 1 : 0,
+            cpu->FLAGS & FLAG_ZF ? 1 : 0,
+            cpu->FLAGS & FLAG_SF ? 1 : 0,
+            cpu->FLAGS & FLAG_CF ? 1 : 0
+        );
 
         if(show_stack)
         {
