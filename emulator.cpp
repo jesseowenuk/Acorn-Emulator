@@ -70,20 +70,23 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
+    // MOV BX, 0x3000
+    write8(0x2000, 0xBB); write16(0x2001, 0x3000);
+
     // MOV AX, 0x1234
-    write8(0x2000, 0xB8); write16(0x2001, 0x1234);
+    write8(0x2003, 0xB8); write16(0x2004, 0x1234);
 
-    // MOV [3000], AX
-    write8(0x2003, 0xA3); write16(0x2004, 0x3000);
+    // MOV [BX], AX
+    write8(0x2006, 0x89); write8(0x2007, 0x07);
 
-    // MOV AX, 0000
-    write8(0x2006, 0xB8); write16(0x2007, 0x0000);
+    // MOV AX, 0x0000
+    write8(0x2008, 0xB8); write16(0x2009, 0x0000);
 
-    // MOV AX, [3000]
-    write8(0x2009, 0xA1); write16(0x200A, 0x3000);
+    // MOV AX, [BX]
+    write8(0x200B, 0x8B); write8(0x200C, 0x07);
 
     // HLT
-    write8(0x200C, 0xF4);
+    write8(0x200D, 0xF4);
    
 
     // Fetch / Decode Loop
@@ -179,6 +182,58 @@ int main()
 
                 break;
             }
+
+            // MODRM (cheat)
+            // Put the value stored in BX into the AX register
+            case 0x8B:
+            {
+                uint8_t modrm_byte = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                // MOV AX, [BX]
+                if(modrm_byte == 0x07)
+                {
+                    uint32_t address = cpu.DS * 16 + cpu.BX;
+                    cpu.AX = read16(address);
+                    #ifdef DEBUG
+                    printf("Executed MOV AX, [BX]\n");
+                    #endif
+                }
+                #ifdef DEBUG
+                else
+                {
+                    printf("Unsupported 8B modrm: %02X\n", modrm_byte);
+                }
+                #endif
+
+                break;
+            }
+
+            case 0x89:
+            {
+                uint8_t modrm_byte = read8(cpu.CS * 16 + cpu.IP);
+                cpu.IP++;
+
+                // MOV [BX], AX
+                if(modrm_byte == 0x07)
+                {
+                    uint32_t address = cpu.DS * 16 + cpu.BX;
+                    write16(address, cpu.AX);
+
+                    #ifdef DEBUG
+                    printf("Executed MOV [BX], AX\n");
+                    #endif
+                }
+                #ifdef DEBUG
+                else
+                {
+                    printf("Unsupported 89 modrm: %02X\n", modrm_byte);
+                }
+                #endif
+
+                break;
+            }
+
 
             // INT, 8_bit_value
             case 0xCD:
