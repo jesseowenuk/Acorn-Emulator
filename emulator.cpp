@@ -62,6 +62,7 @@ int main()
 
     // Set up IP and CS
     cpu.CS = 0x0000;
+    cpu.DS = 0x0000;
     cpu.IP = 0x2000;
     cpu.SS = 0x0000;
     cpu.SP = 0xFFFE;                    // top of the stack near end of the memory segment  
@@ -69,26 +70,20 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV AX, 3
-    write8(0x2000, 0xB8); write16(0x2001, 0x0003);
+    // MOV AX, 0x1234
+    write8(0x2000, 0xB8); write16(0x2001, 0x1234);
 
-    // CMP AX, 5
-    write8(0x2003, 0x3D); write16(0x2004, 0x0005);
+    // MOV [3000], AX
+    write8(0x2003, 0xA3); write16(0x2004, 0x3000);
 
-    // JL +4 (jump to 0x200C)
-    write8(0x2006, 0x7C); write8(0x2007, 0x04);
+    // MOV AX, 0000
+    write8(0x2006, 0xB8); write16(0x2007, 0x0000);
 
-    // MOV AX, 0x9999
-    write8(0x2008, 0xB8); write16(0x2009, 0x9999);
-
-    // HLT
-    write8(0x200B, 0xF4);
-
-    // + 5
-    write8(0x200C, 0xB8); write16(0x200D, 0x1111);
+    // MOV AX, [3000]
+    write8(0x2009, 0xA1); write16(0x200A, 0x3000);
 
     // HLT
-    write8(0x200F, 0xF4);
+    write8(0x200C, 0xF4);
    
 
     // Fetch / Decode Loop
@@ -102,7 +97,7 @@ int main()
         // Step 2: Decode & Execute
         switch(opcode)
         {
-            // All the MOV's
+            // All the register MOV's
             // AX, BX, CX, DX, SP, BP, SI & DI
             case 0xB8: case 0xB9: case 0xBA: case 0xBB:
             case 0xBC: case 0xBD: case 0xBE: case 0xBF:
@@ -149,6 +144,39 @@ int main()
                 #if DEBUG
                 printf("Exeecuted MOV AL, 0x%02X\n", imm);
                 #endif
+                break;
+            }
+
+            // MOV AX, [imm16]
+            case 0xA1:
+            {
+                uint16_t offset = read16(cpu.CS * 16 + cpu.IP);
+                cpu.IP += 2;
+
+                uint32_t address = cpu.DS * 16 + offset;
+
+                cpu.AX = read16(address);
+
+                #if DEBUG
+                printf("Exeecuted MOV AX, [0x%04X]\n", offset);
+                #endif
+
+                break;
+            }
+
+            // MOV [imm16], AX
+            case 0xA3:
+            {
+                uint16_t offset = read16(cpu.CS * 16 + cpu.IP);
+                cpu.IP += 2;
+
+                uint32_t address = cpu.DS * 16 + offset;
+                write16(address, cpu.AX);
+
+                #if DEBUG
+                printf("Exeecuted MOV [0x%04X], AX\n", offset);
+                #endif
+
                 break;
             }
 
