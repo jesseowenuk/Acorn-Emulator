@@ -70,23 +70,14 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV BX, 0x3000
-    write8(0x2000, 0xBB); write16(0x2001, 0x3000);
+    // MOV AX, 0x7FFF
+    write8(address++, 0xB8); write16(address, 0x7FFF); address += 2;
 
-    // MOV AX, 0x1234
-    write8(0x2003, 0xB8); write16(0x2004, 0x1234);
-
-    // MOV [BX], AX
-    write8(0x2006, 0x89); write8(0x2007, 0x07);
-
-    // MOV AX, 0x0000
-    write8(0x2008, 0xB8); write16(0x2009, 0x0000);
-
-    // MOV AX, [BX]
-    write8(0x200B, 0x8B); write8(0x200C, 0x07);
+    // ADD AX, 0x0001
+    write8(address++, 0x05); write16(address, 0x0001); address += 2;
 
     // HLT
-    write8(0x200D, 0xF4);
+    write8(address++, 0xF4);
    
 
     // Fetch / Decode Loop
@@ -376,6 +367,50 @@ int main()
                     printf("Executed JE (not taken)\n");
                     #endif
                 }
+                break;
+            }
+
+            // ADD AX, value
+            case 0x05:
+            {
+                uint16_t value = read16(cpu.CS * 16 + cpu.IP);
+                cpu.IP += 2;
+
+                uint32_t result = cpu.AX + value;
+
+                // Clear the flags we care about
+                cpu.FLAGS &= ~(FLAG_CF | FLAG_ZF | FLAG_SF | FLAG_OF);
+
+                // Carry flag (unsigned overflow)
+                if(result > 0xFFFF)
+                {
+                    cpu.FLAGS |= FLAG_CF;
+                }
+
+                // Zero flag
+                if((result & 0xFFFF) == 0)
+                {
+                    cpu.FLAGS |= FLAG_ZF;
+                }
+
+                // Sign flag
+                if(result & 0x8000)
+                {
+                    cpu.FLAGS |= FLAG_SF;
+                }
+
+                // Overflow flag (signed overflow)
+                if(((cpu.AX ^ result) & (value ^ result) & 0x8000))
+                {
+                    cpu.FLAGS |= FLAG_OF;
+                }
+
+                cpu.AX = result & 0xFFFF;
+
+                #ifdef DEBUG
+                printf("Executed ADD AX, 0x%04X\n", value);
+                #endif
+
                 break;
             }
 
