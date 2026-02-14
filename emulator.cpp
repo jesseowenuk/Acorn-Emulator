@@ -70,14 +70,11 @@ int main()
     // Write our program to memory
     uint32_t address = 0x2000;
 
-    // MOV AX, 0x7FFF
-    write8(address++, 0xB8); write16(address, 0x7FFF); address += 2;
+    // MOV AX, 0x1234
+    write8(address++, 0xB8); write16(address, 0x1234); address += 2;
 
-    // INC AX
-    write8(address++, 0x40);
-
-    // INC AX
-    write8(address++, 0x40);
+    // AND AX, 0x0F0F
+    write8(address++, 0x25); write16(address, 0x0F0F); address += 2; 
 
     // HLT
     write8(address++, 0xF4);
@@ -517,6 +514,37 @@ int main()
 
                 #ifdef DEBUG
                 printf("Executed INC AX\n");
+                #endif
+
+                break;
+            }
+
+            // AND AX, value16
+            case 0x25:
+            {
+                uint16_t value = read16(cpu.CS * 16 + cpu.IP);
+                cpu.IP += 2;
+
+                // Perform AND
+                cpu.AX &= value;
+
+                // Clear the flags we care about
+                cpu.FLAGS &= ~(FLAG_CF | FLAG_OF | FLAG_ZF | FLAG_SF);
+
+                // Zero flag
+                if(cpu.AX == 0)
+                {
+                    cpu.FLAGS |= FLAG_ZF;
+                }
+
+                // Sign flag (bit 15)
+                if(cpu.AX & 0x8000)
+                {
+                    cpu.FLAGS |= FLAG_SF;
+                }
+
+                #ifdef DEBUG
+                printf("Executed AND AX, 0x%04X\n", value);
                 #endif
 
                 break;
